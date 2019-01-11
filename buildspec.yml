@@ -1,0 +1,50 @@
+version: 0.2
+
+#env:
+  #variables:
+     # key: "value"
+     # key: "value"
+  #parameter-store:
+     # key: "value"
+     # key: "value"
+
+phases:
+  install:
+    commands:
+      - nohup /usr/local/bin/dockerd --host=unix:///var/run/docker.sock --host=tcp://127.0.0.1:2375 --storage-driver=overlay2&
+      - timeout 15 sh -c "until docker info; do echo .; sleep 1; done"
+  pre_build:
+    commands:
+      - mkdir -p /tmp/python/lib/python2.7/site-packages
+      - mkdir -p /tmp/python/lib/python3.6/site-packages
+      - mkdir -p /tmp/python/lib/python3.7/site-packages
+      - docker pull lambci/lambda:build-python2.7
+      - docker pull lambci/lambda:build-python3.6
+      - docker pull lambci/lambda:build-python3.7
+      - PKG_VERSION="$(./awscli_version.py)"
+  build:
+    commands:
+      # Python 2.7
+      - echo "Building layers for awscli version: $PKG_VERSION"
+      - cd /tmp/python/lib/python2.7/site-packages
+      - docker run -v "$PWD":/var/task lambci/lambda:build-python2.7 /bin/bash -c "pip install boto3==$PKG_VERSION -t .; exit"
+      # Python 3.6
+      - cd /tmp/python/lib/python3.6/site-packages
+      - docker run -v "$PWD":/var/task lambci/lambda:build-python3.6 /bin/bash -c "pip install boto3==$PKG_VERSION -t .; exit"
+      # Python 3.7
+      - cd /tmp/python/lib/python3.7/site-packages
+      - docker run -v "$PWD":/var/task lambci/lambda:build-python3.7 /bin/bash -c "pip install boto3==$PKG_VERSION -t .; exit"
+      # Zip files
+      - cd /tmp
+      - zip -r boto3-py27-$PKG_VERSION.zip python/lib/python2.7/site-packages
+      - zip -r boto3-py36-$PKG_VERSION.zip python/lib/python3.6/site-packages
+      - zip -r boto3-py37-$PKG_VERSION.zip python/lib/python3.7/site-packages
+      - ls
+      # Create layer/version in all regions and set public (python)
+      # update DDB table with new version and published arns, date published
+      # modify markdown file with all latest and all versions
+      # update README with badges????
+  #post_build:
+    #commands:
+      # update markdown file in GitHub and commit changes
+      # - command
