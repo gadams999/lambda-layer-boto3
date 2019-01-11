@@ -25,7 +25,8 @@ phases:
   build:
     commands:
       # Python 2.7
-      - echo "Building layers for awscli version: $PKG_VERSION"
+      - echo "Building layers for awscli version $PKG_VERSION"
+      - 'echo "Building layers for awscli version: $PKG_VERSION"'
       - cd /tmp/python/lib/python2.7/site-packages
       - docker run -v "$PWD":/var/task lambci/lambda:build-python2.7 /bin/bash -c "pip install boto3==$PKG_VERSION -t .; exit"
       # Python 3.6
