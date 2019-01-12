@@ -15,18 +15,20 @@ phases:
       - timeout 15 sh -c "until docker info; do echo .; sleep 1; done"
   pre_build:
     commands:
+      - apt update -y 
+      - apt install -y python-requests python-pkg-resources
+      - PKG_VERSION="$(././pypi_package_version.py boto3)"
+      - echo "Building for boto3 version $PKG_VERSION"
       - mkdir -p /tmp/python/lib/python2.7/site-packages
       - mkdir -p /tmp/python/lib/python3.6/site-packages
       - mkdir -p /tmp/python/lib/python3.7/site-packages
       - docker pull lambci/lambda:build-python2.7
       - docker pull lambci/lambda:build-python3.6
       - docker pull lambci/lambda:build-python3.7
-      - PKG_VERSION="$(./awscli_version.py)"
   build:
     commands:
+      - 'echo "Building layers for bot3 version: $PKG_VERSION"'
       # Python 2.7
-      - echo "Building layers for awscli version $PKG_VERSION"
-      - 'echo "Building layers for awscli version: $PKG_VERSION"'
       - cd /tmp/python/lib/python2.7/site-packages
       - docker run -v "$PWD":/var/task lambci/lambda:build-python2.7 /bin/bash -c "pip install boto3==$PKG_VERSION -t .; exit"
       # Python 3.6
