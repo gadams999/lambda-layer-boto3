@@ -18,4 +18,3 @@ try:
     print(str(versions(package_name)[-1:][0]))
 except Exception as e:
     exit(1)
-
