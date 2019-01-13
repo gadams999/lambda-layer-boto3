@@ -42,9 +42,10 @@ Parameters:
   GitHubRepo:
     Type: String
     Description: Public GitHub repository for updating main README.md file
+    Default: https://github.com/USERNAME/REPO
   GitHubAccessToken:
     Type: String
-    Description: GitHub token that grants access to read/write the GitHubRepo
+    Description: AWS System Manager GitHub access token parameter to pass to build jobs (NOT THE ACTUAL TOKEN)
 
 Resources:
   CodeBuildProject:
@@ -61,8 +62,11 @@ Resources:
           Image: "aws/codebuild/docker:18.09.0"
           Type: "LINUX_CONTAINER"
           PrivilegedMode: true
+          EnvironmentVariables:
+          - Name: GITHUB_TOKEN
+            Type: PARAMETER_STORE
+            Value: !Ref GitHubAccessToken
         ServiceRole: !GetAtt CodeBuildServiceRole.Arn
-#        Name: !Join ["_", [!Join ["", !Split ["-",  !Ref "AWS::StackName"] ], "boto3_builder" ] ]
         Name: !Join
                 - "_"
                 -
@@ -72,7 +76,7 @@ Resources:
           Type: "GITHUB"
           Auth:
             Type: "OAUTH"
-            Resource: !Ref GitHubAccessToken
+            #Resource: !Ref GitHubAccessToken
           GitCloneDepth: 1
           InsecureSsl: "false"
           Location: "https://github.com/gadams999/lambda-layer-boto3.git"
@@ -133,4 +137,18 @@ Resources:
             - s3:GetObjectVersion
             Resource:
             - "arn:aws:s3:::codepipeline-us-west-2-*"
+          - Sid: FullSSMAccess
+            Effect: Allow
+            Action:
+            - ssm:GetParameters
+            Resource:
+            - !Join
+              - ""
+              -
+                - "arn:aws:ssm:"
+                - !Ref "AWS::Region"
+                - ":"
+                - !Ref "AWS::AccountId"
+                - ":parameter/"
+                - !Ref GitHubAccessToken
 
