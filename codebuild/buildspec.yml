@@ -18,7 +18,7 @@ phases:
       - cd codebuild
       - echo $GITHUB_TOKEN
       - apt update -y
-      - apt install -y python-dev python-pip python-requests python-pkg-resources
+      - apt install -y python-dev libpython-dev python-pip python-requests python-pkg-resources
       - pip install -U awscli
       - PKG_VERSION="$(./pypi_package_version.py boto3)"
       - echo "Building for boto3 version $PKG_VERSION"
