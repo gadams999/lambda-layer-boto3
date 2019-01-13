@@ -31,25 +31,24 @@ phases:
       - docker pull lambci/lambda:build-python3.7
   build:
     commands:
-      - exit
       - 'echo "Building layers for boto3 version: $PKG_VERSION"'
       # Python 2.7
-      - cd /tmp/python/lib/python2.7/site-packages
-      - docker run -v "$PWD":/var/task lambci/lambda:build-python2.7 /bin/bash -c "pip install boto3==$PKG_VERSION -t .; exit"
-      # Python 3.6
-      - cd /tmp/python/lib/python3.6/site-packages
-      - docker run -v "$PWD":/var/task lambci/lambda:build-python3.6 /bin/bash -c "pip install boto3==$PKG_VERSION -t .; exit"
-      # Python 3.7
-      - cd /tmp/python/lib/python3.7/site-packages
-      - docker run -v "$PWD":/var/task lambci/lambda:build-python3.7 /bin/bash -c "pip install boto3==$PKG_VERSION -t .; exit"
-      # Zip files
-      - cd /tmp
-      - zip -r boto3-py27-$PKG_VERSION.zip python/lib/python2.7/site-packages > /dev/null
-      - zip -r boto3-py36-$PKG_VERSION.zip python/lib/python3.6/site-packages > /dev/null
-      - zip -r boto3-py37-$PKG_VERSION.zip python/lib/python3.7/site-packages > /dev/null
-      - zip -r boto3-combined-$PKG_VERSION.zip python > /dev/null
-      - ls -lh *.zip
-      - $CODEBUILD_SRC_DIR/codebuild/publish_layer.py
+      # - cd /tmp/python/lib/python2.7/site-packages
+      # - docker run -v "$PWD":/var/task lambci/lambda:build-python2.7 /bin/bash -c "pip install boto3==$PKG_VERSION -t .; exit"
+      # # Python 3.6
+      # - cd /tmp/python/lib/python3.6/site-packages
+      # - docker run -v "$PWD":/var/task lambci/lambda:build-python3.6 /bin/bash -c "pip install boto3==$PKG_VERSION -t .; exit"
+      # # Python 3.7
+      # - cd /tmp/python/lib/python3.7/site-packages
+      # - docker run -v "$PWD":/var/task lambci/lambda:build-python3.7 /bin/bash -c "pip install boto3==$PKG_VERSION -t .; exit"
+      # # Zip files
+      # - cd /tmp
+      # - zip -r boto3-py27-$PKG_VERSION.zip python/lib/python2.7/site-packages > /dev/null
+      # - zip -r boto3-py36-$PKG_VERSION.zip python/lib/python3.6/site-packages > /dev/null
+      # - zip -r boto3-py37-$PKG_VERSION.zip python/lib/python3.7/site-packages > /dev/null
+      # - zip -r boto3-combined-$PKG_VERSION.zip python > /dev/null
+      # - ls -lh *.zip
+      # - $CODEBUILD_SRC_DIR/codebuild/publish_layer.py
       # Create layer/version in all regions and set public (python)
       # update DDB table with new version and published arns, date published
       # modify markdown file with all latest and all versions
