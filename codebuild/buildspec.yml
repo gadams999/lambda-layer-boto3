@@ -19,6 +19,7 @@ phases:
       - echo $GITHUB_TOKEN
       - apt update -y
       - apt install -y python3-pip python-requests python-pkg-resources
+      - pip3 install -U awscli
       - aws --version
       - PKG_VERSION="$(./pypi_package_version.py boto3)"
       - echo "Building for boto3 version $PKG_VERSION"
@@ -46,7 +47,7 @@ phases:
       - zip -r boto3-py36-$PKG_VERSION.zip python/lib/python3.6/site-packages > /dev/null
       - zip -r boto3-py37-$PKG_VERSION.zip python/lib/python3.7/site-packages > /dev/null
       - zip -r boto3-combined-$PKG_VERSION.zip python > /dev/null
-      - ls -l *.zip
+      - ls -lh *.zip
       # Create layer/version in all regions and set public (python)
       # update DDB table with new version and published arns, date published
       # modify markdown file with all latest and all versions
