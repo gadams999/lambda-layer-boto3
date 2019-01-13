@@ -46,6 +46,7 @@ Parameters:
   GitHubAccessToken:
     Type: String
     Description: AWS System Manager GitHub access token parameter to pass to build jobs (NOT THE ACTUAL TOKEN)
+    Default: /CodeBuild/KEYNAME
 
 Resources:
   CodeBuildProject:
