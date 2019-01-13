@@ -149,6 +149,5 @@ Resources:
                 - !Ref "AWS::Region"
                 - ":"
                 - !Ref "AWS::AccountId"
-                - ":parameter/"
-                - !Ref GitHubAccessToken
+                - ":parameter/CodeBuild/*"
 

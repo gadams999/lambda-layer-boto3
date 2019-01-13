@@ -6,9 +6,9 @@
 
 1. To protect the access token, create an entry in the *AWS Systems Manager Parameter Store* in the same region where the CloudFormation template will be run:
 
-   **Name**: `GITHUB_KEY` (or any other name, used as the GitHubKey parameter value in CloudFormation)
+   **Name**: `/CodeBuild/GITHUB_KEY` (or any other name prefixed by `/CodeBuild`, used as the GitHubKey parameter value in CloudFormation)
 
-   **Type**: String
+   **Type**: SecureString
 
    **Value**: paste the access key value
 
