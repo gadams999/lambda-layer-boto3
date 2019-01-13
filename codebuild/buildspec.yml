@@ -20,7 +20,7 @@ phases:
       - apt update -y
       - apt install -y python3-pip python-requests python-pkg-resources
       - pip3 install -U awscli
-      - python3 -V
+      - /usr/bin/env python -V
       - PKG_VERSION="$(./pypi_package_version.py boto3)"
       - echo "Building for boto3 version $PKG_VERSION"
       - mkdir -p /tmp/python/lib/python2.7/site-packages
@@ -31,6 +31,7 @@ phases:
       - docker pull lambci/lambda:build-python3.7
   build:
     commands:
+      - exit
       - 'echo "Building layers for boto3 version: $PKG_VERSION"'
       # Python 2.7
       - cd /tmp/python/lib/python2.7/site-packages
@@ -48,6 +49,7 @@ phases:
       - zip -r boto3-py37-$PKG_VERSION.zip python/lib/python3.7/site-packages > /dev/null
       - zip -r boto3-combined-$PKG_VERSION.zip python > /dev/null
       - ls -lh *.zip
+      - $CODEBUILD_SRC_DIR/codebuild/publish_layer.py
       # Create layer/version in all regions and set public (python)
       # update DDB table with new version and published arns, date published
       # modify markdown file with all latest and all versions
