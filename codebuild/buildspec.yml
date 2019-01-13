@@ -15,9 +15,10 @@ phases:
       - timeout 15 sh -c "until docker info; do echo .; sleep 1; done"
   pre_build:
     commands:
+      - pwd
       - apt update -y 
       - apt install -y python-requests python-pkg-resources
-      - PKG_VERSION="$(././pypi_package_version.py boto3)"
+      - PKG_VERSION="$(./pypi_package_version.py boto3)"
       - echo "Building for boto3 version $PKG_VERSION"
       - mkdir -p /tmp/python/lib/python2.7/site-packages
       - mkdir -p /tmp/python/lib/python3.6/site-packages
