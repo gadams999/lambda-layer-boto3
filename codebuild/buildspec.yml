@@ -20,7 +20,7 @@ phases:
       - apt update -y
       - apt install -y python3-pip python-requests python-pkg-resources
       - pip3 install -U awscli
-      - python -V
+      - python3 -V
       - PKG_VERSION="$(./pypi_package_version.py boto3)"
       - echo "Building for boto3 version $PKG_VERSION"
       - mkdir -p /tmp/python/lib/python2.7/site-packages
