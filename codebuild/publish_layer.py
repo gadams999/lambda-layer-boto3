@@ -164,6 +164,10 @@ if __name__ == '__main__':
         publish_layers(regions, compatible_runtimes)
         update_db_version(version_to_process)
 
+    # All layers have been updated, now generate new files and commit to repo
+
+    
+
 
 
 
