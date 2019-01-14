@@ -11,7 +11,7 @@ import boto3
 from botocore.exceptions import ClientError
 
 logger = logging.getLogger()
-handler = logging.StreamHandler()
+handler = logging.StreamHandler(sys.stdout)
 handler.setLevel(logging.DEBUG)
 logger.addHandler(handler)
 
@@ -28,6 +28,7 @@ compatible_runtimes = {
     'combined': ['python2.7', 'python3.6', 'python3.7']
 }
 
+# Global resource used by various functions
 db_resource = boto3.resource('dynamodb')
 
 def lambda_regions():
@@ -74,6 +75,18 @@ def latest_db_version():
             return version
         except KeyError:
             return None
+
+
+def update_db_version(version):
+    '''Updates DynamoDB tracking record with the provided version'''
+    table = db_resource.Table(table_name)
+    table.put_item(
+        Item={
+            'region': MASTER_REGION,
+            'timestamp': MASTER_TIMESTAMP,
+            'package_version': version
+        }
+    )
 
 
 def publish_layers(regions, compatible_runtimes):
@@ -125,41 +138,33 @@ def publish_layers(regions, compatible_runtimes):
                 )
                 print('ddb entry made for layer')
 
+if __name__ == '__main__':
+    '''Main entry point, process CodeBuild steps for new lambda layers'''
 
+    # Collect all regions Lambda is available
+    regions = lambda_regions()
 
+    regions = ['us-east-1', 'us-west-2']
+    table = db_resource.Table(table_name)
 
-
-
-#########################
-
-# regions = lambda_regions()
-
-regions = ['us-east-1', 'us-west-2']
-table = db_resource.Table(table_name)
-
-last_version_processed = latest_db_version()
-if last_version_processed:
-    # Tracking record exists
-    if parse_version(version_to_process) > parse_version(last_version_processed):
-        print ('new version to process, database is at: {}, pypi reporting: {}'.format(
-            last_version_processed, version_to_process)
-        )
-        publish_layers(regions, compatible_runtimes)
+    last_version_processed = latest_db_version()
+    if last_version_processed:
+        # Tracking record exists
+        if parse_version(version_to_process) > parse_version(last_version_processed):
+            print ('new version to process, database is at: {}, pypi reporting: {}'.format(
+                last_version_processed, version_to_process)
+            )
+            publish_layers(regions, compatible_runtimes)
+            update_db_version(version_to_process)
+        else:
+            print('pypi version {} has already been processed, exiting'.format(version_to_process))
+            logger.info('pypi version %s has already been processed, exiting', version_to_process)
     else:
-        print('pypi version %s has already been processed, exiting', version_to_process)
-        logger.info('pypi version %s has already been processed, exiting', version_to_process)
-else:
-    # Database does not have tracking record, publish and create
-    publish_layers(regions, compatible_runtimes)
+        # Database does not have tracking record, publish and create
+        publish_layers(regions, compatible_runtimes)
+        update_db_version(version_to_process)
 
-# Create/update tracking record of last processed version
-table.put_item(
-    Item={
-        'region': MASTER_REGION,
-        'timestamp': MASTER_TIMESTAMP,
-        'package_version': version_to_process
-    }
-)
+
 
 
 # build:
