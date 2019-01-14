@@ -48,7 +48,7 @@ phases:
       - zip -r boto3-python37-$PKG_VERSION.zip python/lib/python3.7/site-packages > /dev/null
       - zip -r boto3-combined-$PKG_VERSION.zip python > /dev/null
       - ls -lh *.zip
-      - $CODEBUILD_SRC_DIR/codebuild/publish_layer.py /tmp
+      - python3 $CODEBUILD_SRC_DIR/codebuild/publish_layer.py
       # Create layer/version in all regions and set public (python)
       # update DDB table with new version and published arns, date published
       # modify markdown file with all latest and all versions

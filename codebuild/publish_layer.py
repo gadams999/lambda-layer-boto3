@@ -81,8 +81,10 @@ def publish_layers(regions, compatible_runtimes):
 
     table = db_resource.Table(table_name)
     for region in regions:
+        print('Processing region: {}'.format(region))
         lambda_client = boto3.client('lambda', region_name=region)
         for runtime in compatible_runtimes:
+            print('Processing runtime: {}'.format(runtime))
             # create layer and DDB record
             try:
                 response = lambda_client.publish_layer_version(
@@ -97,6 +99,7 @@ def publish_layers(regions, compatible_runtimes):
                     CompatibleRuntimes=compatible_runtimes[runtime],
                     LicenseInfo='Apache-2.0'
                 )
+                print('created layer')
                 version_num = response['Version']
                 arn = response['LayerVersionArn']
                 response = lambda_client.add_layer_version_permission(
@@ -106,7 +109,9 @@ def publish_layers(regions, compatible_runtimes):
                     Action='lambda:GetLayerVersion',
                     Principal='*'
                 )
+                print('set permissions on layer')
             except ClientError as e:
+                print('error: {}'.format(e))
                 logger.error('Error creating new layer for %s:%s, error: %s' %
                     region, runtime, e.response['Error']['Message'])
             else:
@@ -120,6 +125,7 @@ def publish_layers(regions, compatible_runtimes):
                         'arn': arn
                     }
                 )
+                print('ddb entry made for layer')
                 return
 
 
