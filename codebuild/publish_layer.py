@@ -126,7 +126,7 @@ def publish_layers(regions, compatible_runtimes):
                     }
                 )
                 print('ddb entry made for layer')
-                return
+
 
 
 
@@ -147,14 +147,15 @@ if last_version_processed:
 else:
     # Database does not have tracking record, publish and create
     publish_layers(regions, compatible_runtimes)
-    # Create tracking record
-    table.put_item(
-        Item={
-            'region': MASTER_REGION,
-            'timestamp': MASTER_TIMESTAMP,
-            'package_version': version_to_process
-        }
-    )
+
+# Create/update tracking record of last processed version
+table.put_item(
+    Item={
+        'region': MASTER_REGION,
+        'timestamp': MASTER_TIMESTAMP,
+        'package_version': version_to_process
+    }
+)
 
 
 # build:
