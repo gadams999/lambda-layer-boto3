@@ -4,14 +4,28 @@ import requests
 import sys
 import os
 import logging
+import json
+import time
 from pkg_resources import parse_version
 import boto3
 from botocore.exceptions import ClientError
 
 logger = logging.getLogger()
-logger.setLevel(logging.DEBUG)
+
+# Constants
+MASTER_REGION='MASTER'
+MASTER_TIMESTAMP='0'
 
 version_to_process = os.environ['PKG_VERSION']
+table_name = os.environ['VERSION_TABLE']
+compatible_runtimes = {
+    'python27': ['python2.7'],
+    'python36': ['python3.6'],
+    'python37': ['python3.7'],
+    'combined': ['python2.7', 'python3.6', 'python3.7']
+}
+
+db_resource = boto3.resource('dynamodb')
 
 def lambda_regions():
     '''Return list of regions that support AWS Lambda. Note, does not include
@@ -35,35 +49,104 @@ def lambda_regions():
     return lambda_regions  
 
 
+def latest_version():
+    '''Returns latest published version from DynamoDB table or None
+       if no value exists'''
+    
+    # Magic values for the record with most recently processed version
+    region = MASTER_REGION
+    timestamp = MASTER_TIMESTAMP
+    try:
+        response = table.get_item(
+            Key={
+                'region': region,
+                'timestamp': timestamp
+            }
+        )
+    except ClientError as e:
+        logger.error(e.response['Error']['Message'])   
+    else:
+        try:
+            version = response['Item']['package_version']
+            return version
+        except KeyError:
+            return None
 
-regions = lambda_regions()
 
-# open ddb table and read latest processed/pub version (pk "region": "default")
-# compare to package version on pypi
+def publish_layers(regions, compatible_runtimes):
+    '''Main function to process runtimes and publish new layer and/or version'''
 
-# >>> from pkg_resources import parse_version
-# >>> parse_version('1.9.a.dev') == parse_version('1.9a0dev')
-# True
-# >>> parse_version('2.1-rc2') < parse_version('2.1')
-# True
-# >>> parse_version('0.6a9dev-r41475') < parse_version('0.6a9')
-# True
+    table = db_resource.Table(table_name)
+    for region in regions:
+        lambda_client = boto3.client('lambda', region_name=region)
+        for runtime in compatible_runtimes:
+            # create layer and DDB record
+            try:
+                response = lambda_client.publish_layer_version(
+                    LayerName='boto3',
+                    Description='boto3/botocore version: {}'.format(
+                        version_to_process
+                    ),
+                    Content={
+                        'ZipFile': open('/tmp/boto3-{}-{}.zip'.format(
+                            runtime, version_to_process), 'rb').read()
+                    },
+                    CompatibleRuntimes=compatible_runtimes[runtime],
+                    LicenseInfo='Apache-2.0'
+                )
+                version_num = response['Version']
+                arn = response['LayerVersionArn']
+                response = lambda_client.add_layer_version_permission(
+                    LayerName='boto3',
+                    VersionNumber=version_num,
+                    StatementId='FullPublicAccess',
+                    Action='lambda:GetLayerVersion',
+                    Principal='*'
+                )
+            except ClientError as e:
+                logger.error('Error creating new layer for %s:%s, error: %s' %
+                    region, runtime, e.response['Error']['Message'])
+            else:
+                # layer has been published as access granted, create DB entry
+                table.put_item(
+                    Item={
+                        'region': region,
+                        'timestamp': str(int(time.time())),
+                        'package_version': version_to_process,
+                        'runtimes': ','.join(compatible_runtimes[runtime]),
+                        'arn': arn
+                    }
+                )
+                return
 
-# if pypi version newer than ddb version
 
-# for every lambda region:
-#    compatible_runtimes = {python2.7: python2.7, python3.6, python3.7, combined: [python2.7, python3.6, python3.7]}
-#    for compatible_runtimes:
-#      try:
-#         publish layer
-#         create DDB entry (pk: "region": "$region",
-#                           timestamp: time.time(),
-#                           "arn": returned arn,
-#                           "version": "boto3 version",
-#                           "runtimes": [python3.6, ...])
-#         procesed_entry = success, region, arn, runtimes
-#      except ClientError:
-#         processed_entry = fail, region, runtimes
+
+
+
+#########################
+
+# regions = lambda_regions()
+
+regions = ['us-east-1', 'us-west-2']
+table = db_resource.Table(table_name)
+
+last_version_processed = latest_version()
+if last_version_processed:
+    # Tracking record exists
+    if parse_version(version_to_process) > parse_version(last_version_processed):
+        publish_layers(regions, compatible_runtimes)
+else:
+    # Database does not have tracking record, publish and create
+    publish_layers(regions, compatible_runtimes)
+    # Create tracking record
+    table.put_item(
+        Item={
+            'region': MASTER_REGION,
+            'timestamp': MASTER_TIMESTAMP,
+            'package_version': version_to_process
+        }
+    )
+
 
 # build:
 #   README.md with updates for processed version and latest table of region, version, arn and other jinja entries

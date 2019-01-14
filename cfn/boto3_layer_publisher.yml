@@ -63,7 +63,7 @@ Resources:
             Value: !Ref GitHubAccessToken
           - Name: VERSION_TABLE
             Type: PLAINTEXT
-            Value: !GetAtt VersionTable.TableName
+            Value: !Ref VersionTable
         ServiceRole: !GetAtt CodeBuildServiceRole.Arn
         Name: !Join
                 - "_"
@@ -91,7 +91,7 @@ Resources:
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         -
-          AttributeName: 'imestamp'
+          AttributeName: 'timestamp'
           AttributeType: "S"
         -
           AttributeName: 'region'
@@ -191,3 +191,7 @@ Resources:
                 - !Ref "AWS::AccountId"
                 - ":parameter/CodeBuild/*"
 
+Outputs:
+  TableName:
+    Description: test - DDB table name
+    Value: !Ref VersionTable
