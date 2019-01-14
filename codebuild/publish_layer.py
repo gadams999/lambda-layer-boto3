@@ -52,7 +52,7 @@ def lambda_regions():
     return lambda_regions  
 
 
-def latest_version():
+def latest_db_version():
     '''Returns latest published version from DynamoDB table or None
        if no value exists'''
     
@@ -137,12 +137,16 @@ def publish_layers(regions, compatible_runtimes):
 regions = ['us-east-1', 'us-west-2']
 table = db_resource.Table(table_name)
 
-last_version_processed = latest_version()
+last_version_processed = latest_db_version()
 if last_version_processed:
     # Tracking record exists
     if parse_version(version_to_process) > parse_version(last_version_processed):
+        print ('new version to process, database is at: {}, pypi reporting: {}'.format(
+            last_version_processed, version_to_process)
+        )
         publish_layers(regions, compatible_runtimes)
     else:
+        print('pypi version %s has already been processed, exiting', version_to_process)
         logger.info('pypi version %s has already been processed, exiting', version_to_process)
 else:
     # Database does not have tracking record, publish and create
