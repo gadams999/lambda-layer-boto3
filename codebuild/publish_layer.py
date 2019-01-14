@@ -11,7 +11,7 @@ import boto3
 from botocore.exceptions import ClientError
 
 logger = logging.getLogger()
-handler = logging.StreamHandler(sys.stdout)
+handler = logging.StreamHandler()
 handler.setLevel(logging.DEBUG)
 logger.addHandler(handler)
 
@@ -67,7 +67,7 @@ def latest_version():
             }
         )
     except ClientError as e:
-        logger.error(e.response['Error']['Message'])   
+        logger.error("%s", e.response['Error']['Message'])   
     else:
         try:
             version = response['Item']['package_version']
@@ -81,10 +81,8 @@ def publish_layers(regions, compatible_runtimes):
 
     table = db_resource.Table(table_name)
     for region in regions:
-        print('Processing region: {}'.format(region))
         lambda_client = boto3.client('lambda', region_name=region)
         for runtime in compatible_runtimes:
-            print('Processing runtime: {}'.format(runtime))
             # create layer and DDB record
             try:
                 response = lambda_client.publish_layer_version(
@@ -99,7 +97,6 @@ def publish_layers(regions, compatible_runtimes):
                     CompatibleRuntimes=compatible_runtimes[runtime],
                     LicenseInfo='Apache-2.0'
                 )
-                print('created layer')
                 version_num = response['Version']
                 arn = response['LayerVersionArn']
                 response = lambda_client.add_layer_version_permission(
@@ -109,11 +106,12 @@ def publish_layers(regions, compatible_runtimes):
                     Action='lambda:GetLayerVersion',
                     Principal='*'
                 )
-                print('set permissions on layer')
+                logger.info('Created layer: %s in %s, permissions set',
+                    runtime, region)
             except ClientError as e:
-                print('error: {}'.format(e))
-                logger.error('Error creating new layer for %s:%s, error: %s' %
+                logger.error('Error creating new layer for %s:%s, error: %s',
                     region, runtime, e.response['Error']['Message'])
+                sys.exit(1)
             else:
                 # layer has been published as access granted, create DB entry
                 table.put_item(
@@ -144,6 +142,8 @@ if last_version_processed:
     # Tracking record exists
     if parse_version(version_to_process) > parse_version(last_version_processed):
         publish_layers(regions, compatible_runtimes)
+    else:
+        logger.info('pypi version %s has already been processed, exiting', version_to_process)
 else:
     # Database does not have tracking record, publish and create
     publish_layers(regions, compatible_runtimes)
