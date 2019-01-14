@@ -10,12 +10,6 @@
 # - GitHub personal access token for repo allowing full permissions (see: https://help.github.com/articles/creating-a-personal-access-token-for-the-command-line/)
 
 # To create
-# - codebuild project
-# - access role for project
-#   - defaults from a codebuild (non-VPC) role, PLUS:
-#   - publish lambda layer for all regions
-#   - dynamodb table access
-
 # dynamodb table for all published entries
 
 # CWE with lambda to detect new version of boto3 and the initiate CB project
@@ -67,6 +61,9 @@ Resources:
           - Name: GITHUB_TOKEN
             Type: PARAMETER_STORE
             Value: !Ref GitHubAccessToken
+          - Name: VERSION_TABLE
+            Type: PLAINTEXT
+            Value: !GetAtt VersionTable.TableName
         ServiceRole: !GetAtt CodeBuildServiceRole.Arn
         Name: !Join
                 - "_"
@@ -83,7 +80,49 @@ Resources:
           Location: "https://github.com/gadams999/lambda-layer-boto3.git"
           BuildSpec: "codebuild/buildspec.yml"
           ReportBuildStatus: "false"
-  
+  VersionTable:
+    Type: 'AWS::DynamoDB::Table'
+    Properties:
+      TableName: !Join
+                  - ""
+                  -
+                    - !Join ["", !Split ["-",  !Ref "AWS::StackName"] ]
+                    - "-VersionTable"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        -
+          AttributeName: 'imestamp'
+          AttributeType: "S"
+        -
+          AttributeName: 'region'
+          AttributeType: "S"
+        -
+          AttributeName: 'package_version'
+          AttributeType: "S"
+      KeySchema:
+        -
+          AttributeName: 'region'
+          KeyType: "HASH"
+        -
+          AttributeName: 'timestamp'
+          KeyType: "RANGE"
+      GlobalSecondaryIndexes: 
+        - 
+          IndexName: "versionGSI"
+          KeySchema: 
+            - 
+              AttributeName: "region"
+              KeyType: "HASH"
+            - 
+              AttributeName: "package_version"
+              KeyType: "RANGE"
+          Projection: 
+            NonKeyAttributes: 
+              - "timestamp"
+              - "arn"
+              - "runtimes"
+            ProjectionType: "INCLUDE"
+
   # Roles and policies
   CodeBuildServiceRole:
     # Default permissions to run CodeBuild jos

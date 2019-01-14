@@ -12,4 +12,3 @@
 
    **Value**: paste the access key value
 
-   :exclamation: NOTE: Anyone with access to AWS Systems Manager Parameter Store will be able to see the key.
