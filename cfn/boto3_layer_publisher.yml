@@ -193,6 +193,7 @@ Resources:
           - Sid: LambdaAccess
             Effect: Allow
             Action:
+            - lambda:GetAccountSettings
             - lambda:AddLayerVersionPermission
             - lambda:PublishLayerVersion
             Resource:
@@ -211,6 +212,12 @@ Resources:
                 - !Ref "AWS::AccountId"
                 - ":table/"
                 - !Ref VersionTable
+          - Sid: EC2Describe
+            Effect: Allow
+            Action:
+            - ec2:DesribeRegions
+            Resource:
+            - "*"
 
 Outputs:
   TableName:
