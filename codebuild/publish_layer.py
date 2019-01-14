@@ -11,6 +11,9 @@ import boto3
 from botocore.exceptions import ClientError
 
 logger = logging.getLogger()
+handler = logging.StreamHandler(sys.stdout)
+handler.setLevel(logging.DEBUG)
+logger.addHandler(handler)
 
 # Constants
 MASTER_REGION='MASTER'
@@ -83,7 +86,7 @@ def publish_layers(regions, compatible_runtimes):
             # create layer and DDB record
             try:
                 response = lambda_client.publish_layer_version(
-                    LayerName='boto3',
+                    LayerName='boto3-{}'.format(runtime),
                     Description='boto3/botocore version: {}'.format(
                         version_to_process
                     ),
@@ -97,7 +100,7 @@ def publish_layers(regions, compatible_runtimes):
                 version_num = response['Version']
                 arn = response['LayerVersionArn']
                 response = lambda_client.add_layer_version_permission(
-                    LayerName='boto3',
+                    LayerName='boto3-{}'.format(runtime),
                     VersionNumber=version_num,
                     StatementId='FullPublicAccess',
                     Action='lambda:GetLayerVersion',

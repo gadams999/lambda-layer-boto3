@@ -177,7 +177,7 @@ Resources:
             - s3:GetObjectVersion
             Resource:
             - "arn:aws:s3:::codepipeline-us-west-2-*"
-          - Sid: FullSSMAccess
+          - Sid: SSMCodeBuildKeys
             Effect: Allow
             Action:
             - ssm:GetParameters
@@ -190,6 +190,27 @@ Resources:
                 - ":"
                 - !Ref "AWS::AccountId"
                 - ":parameter/CodeBuild/*"
+          - Sid: LambdaAccess
+            Effect: Allow
+            Action:
+            - lambda:AddLayerVersionPermission
+            - lambda:PublishLayerVersion
+            Resource:
+            - "*"
+          - Sid: DynamoTableAccess
+            Effect: Allow
+            Action:
+            - dynamodb:*
+            Resource:
+            - !Join
+              - ""
+              -
+                - "arn:aws:dynamodb:"
+                - !Ref "AWS::Region"
+                - ":"
+                - !Ref "AWS::AccountId"
+                - ":table/"
+                - !Ref VersionTable
 
 Outputs:
   TableName:
