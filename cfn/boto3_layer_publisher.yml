@@ -9,9 +9,6 @@
 # - github repo
 # - GitHub personal access token for repo allowing full permissions (see: https://help.github.com/articles/creating-a-personal-access-token-for-the-command-line/)
 
-# To create
-# dynamodb table for all published entries
-
 # CWE with lambda to detect new version of boto3 and the initiate CB project
 # - lambda
 # - CWE
@@ -91,36 +88,37 @@ Resources:
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         -
-          AttributeName: 'timestamp'
+          AttributeName: 'Arn'
           AttributeType: "S"
         -
-          AttributeName: 'region'
+          AttributeName: 'PackageList'
           AttributeType: "S"
         -
-          AttributeName: 'package_version'
+          AttributeName: 'PackageVersion'
           AttributeType: "S"
       KeySchema:
         -
-          AttributeName: 'region'
+          AttributeName: 'Arn'
           KeyType: "HASH"
         -
-          AttributeName: 'timestamp'
+          AttributeName: 'PackageList'
           KeyType: "RANGE"
       GlobalSecondaryIndexes: 
         - 
-          IndexName: "versionGSI"
+          IndexName: "gsiPackages"
           KeySchema: 
             - 
-              AttributeName: "region"
+              AttributeName: "PackageList"
               KeyType: "HASH"
             - 
-              AttributeName: "package_version"
+              AttributeName: "PackageVersion"
               KeyType: "RANGE"
           Projection: 
-            NonKeyAttributes: 
-              - "timestamp"
-              - "arn"
-              - "runtimes"
+            NonKeyAttributes:
+              - "Region"
+              - "Runtimes"
+              - "Timestamp"
+              - "PackageVersionList"
             ProjectionType: "INCLUDE"
 
   # Roles and policies

@@ -1,6 +1,6 @@
 # lambda-layer-boto3
 
-Use one of these boto3 layers when you want:
+Use one of these boto3 Lambda layers when you want:
 
 ```python
 >>> import boto3
@@ -121,33 +121,4 @@ $ curl -o current_version.json https://raw.githubusercontent.com/username/lambda
 
 or via any other way that works with direct GitHub URLs.
 
-
-## Most Current Boto3 Lambda Layer
-
-For quick access, the following table will be republished every time a new version of boto3 is release and a layer created.
-
-<table>
-    <thead>
-        <tr>
-            <th align="center" colspan=4>Boto3 Version: {{package_version}}</th>
-        </tr>
-        <tr>
-            <th>Region</th>
-            <th>Version</th>
-            <th>Public ARN</th>
-            <th>Date Create (UTC)</th>
-        </tr>
-    </thead>
-    <tbody>
-        {%- for dict_item in table_list -%}
-        <tr>
-            <td> {{dict_item['region']}} </td>
-            <td> {{dict_item['version']}} </td>
-            <td>{{dict_item['arn']}} </td>
-            <td>{{dict_item['ts']}} </td>
-        {%- endfor -%}
-        </tr>
-    </tbody>
-</table>
 ## Disclaimer
-
