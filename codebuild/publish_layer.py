@@ -7,7 +7,10 @@ import logging
 import json
 import time
 from pkg_resources import parse_version
+from jinja2 import Template
+from datetime import datetime
 import boto3
+from boto3.dynamodb.conditions import Key, Attr
 from botocore.exceptions import ClientError
 
 logger = logging.getLogger()
@@ -21,6 +24,7 @@ MASTER_TIMESTAMP='0'
 
 version_to_process = os.environ['PKG_VERSION']
 table_name = os.environ['VERSION_TABLE']
+build_dir = os.environ['CODEBUILD_SRC_DIR']
 compatible_runtimes = {
     'python27': ['python2.7'],
     'python36': ['python3.6'],
@@ -162,12 +166,33 @@ else:
     publish_layers(regions, compatible_runtimes)
     update_db_version(version_to_process)
 
-# All layers have been updated, now generate new files and commit to repo
+# All layers have been updated, now generate new README files and commit to repo
 
+# TODO - place into function once tested
+table_list = []
+for region in regions:
+    r = table.query(
+        IndexName='versionGSI',
+        KeyConditionExpression=Key('region').eq(region) & 
+        Key('package_version').eq(version_to_process)
+    )
+    for i in sorted(r['Items'], key=lambda kv: (len(kv['runtimes']), kv['runtimes'])):
+        table_list.append({
+            'region': region,
+            'version': i['runtimes'],
+            'arn': i['arn'],
+            'datetime': datetime.utcfromtimestamp(int(i['timestamp'])).strftime('%Y-%m-%d %H:%M:%S')
+        })
 
+with open(build_dir + '/codebuild/readme.template', 'r') as f:
+    template = Template(f.read())
 
-
-
+readme_md = template.render(
+    package_version=version_to_process,
+    table_list=table_list
+)
+with open(build_dir + '/README.md', 'w') as f:
+    f.write(readme_md)
 
 # build:
 #   README.md with updates for processed version and latest table of region, version, arn and other jinja entries

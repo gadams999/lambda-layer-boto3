@@ -61,7 +61,7 @@ Depending upon the python version, the specific `python/lib/pythonVERSION/` set 
 
 ## Usage
 
-Manually, you can reference the ARN in the region where the function resides and for the python version in use. The following are examples using the python 2.7 layer in Oregon (us-west-2) with the ARN: `arn:aws:lambda:us-west-2​:123456789012:​layer:boto3-python27:3`.
+Manually, you can reference the ARN in the region where the function resides and for the python version in use. The following are examples using the python 2.7 layer in Oregon (us-west-2) with the ARN: `arn:aws:lambda:us-west-2:123456789012:layer:boto3-python27:3`.
 
 ### Console
 
@@ -129,13 +129,13 @@ For quick access, the following table will be republished every time a new versi
 <table>
     <thead>
         <tr>
-            <th align="center" colspan=4>Boto3 Version: {{package_version}}</th>
+            <th align="center" colspan=4>Boto3 Layers Version: {{package_version}}</th>
         </tr>
         <tr>
             <th>Region</th>
             <th>Version</th>
             <th>Public ARN</th>
-            <th>Date Create (UTC)</th>
+            <th>Date Published (UTC)</th>
         </tr>
     </thead>
     <tbody>
@@ -144,7 +144,7 @@ For quick access, the following table will be republished every time a new versi
             <td> {{dict_item['region']}} </td>
             <td> {{dict_item['version']}} </td>
             <td>{{dict_item['arn']}} </td>
-            <td>{{dict_item['ts']}} </td>
+            <td>{{dict_item['datetime']}} </td>
         {%- endfor -%}
         </tr>
     </tbody>

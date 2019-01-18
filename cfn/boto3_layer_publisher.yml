@@ -215,7 +215,7 @@ Resources:
           - Sid: EC2Describe
             Effect: Allow
             Action:
-            - ec2:DesribeRegions
+            - ec2:DescribeRegions
             Resource:
             - "*"
 
