@@ -1,19 +1,26 @@
-# lambda-layer-boto3
+# Lambda Layer Manager
 
-Use one of these boto3 Lambda layers when you want:
+Use one of the published AWS Lambda layers when you want your function to perform like this:
 
 ```python
 >>> import boto3
 >>> boto3.__version__
-'{{package_version}}'
+'1.9.78'
+>>> import numpy
+>>> numpy.__version__
+'1.16.0'
 ```
 
-instead of:
+instead of this:
 
 ```python
 >>> import boto3
 >>> boto3.__version__
 '1.7.74'
+>>> import numpy
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+ModuleNotFoundError: No module named 'numpy'
 ```
 
 ## Overview
@@ -121,4 +128,4 @@ $ curl -o current_version.json https://raw.githubusercontent.com/username/lambda
 
 or via any other way that works with direct GitHub URLs.
 
-## Disclaimer
+## Hosting Your Own Layer Manager
