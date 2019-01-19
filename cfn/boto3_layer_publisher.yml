@@ -115,7 +115,7 @@ Resources:
               KeyType: "RANGE"
           Projection: 
             NonKeyAttributes:
-              - "Region"
+              - "Regions"
               - "Runtimes"
               - "Timestamp"
               - "PackageVersionList"

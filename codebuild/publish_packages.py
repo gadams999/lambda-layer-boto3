@@ -13,32 +13,26 @@ import boto3
 from boto3.dynamodb.conditions import Key, Attr
 from botocore.exceptions import ClientError
 
-logger = logging.getLogger()
-handler = logging.StreamHandler(sys.stdout)
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+handler = logging.StreamHandler()
 handler.setLevel(logging.DEBUG)
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+handler.setFormatter(formatter)
 logger.addHandler(handler)
 
 # Environment variables set by CodeBuild
 table_name = os.environ['VERSION_TABLE']
 # build_dir = os.environ['CODEBUILD_SRC_DIR']
 
-# # Python runtimes supported by Lambda - combine
-# compatible_runtimes = {
-#     'python27': ['python2.7'],
-#     'python36': ['python3.6'],
-#     'python37': ['python3.7'],
-#     'combined': ['python2.7', 'python3.6', 'python3.7']
-# }
-
 # Global resource used by various functions
 db_resource = boto3.resource('dynamodb')
-# Build on a per-execution of the script so 
-queried_packages = []
 
 def lambda_regions():
     '''Return list of regions that support AWS Lambda. Note, does not include
        non-public regions such as GovCloud or China'''
 
+    logger.info('Starting query of where Lambda is available')
     ec2 = boto3.client('ec2')
     regions = [region['RegionName'] for region in ec2.describe_regions()['Regions']]
 
@@ -49,11 +43,12 @@ def lambda_regions():
             lambda_client.get_account_settings()
             lambda_regions.append(region)
         except ClientError as e:
-            logging.info(
+            logger.info(
                 'region: %s does not support Lambda, error message was: %s' %
                 (region, e)
             )
             continue
+    logger.info('Lambda available in the following regions: %s' % lambda_regions)
     return lambda_regions  
 
 
@@ -74,6 +69,7 @@ def get_pypi(packages):
     '''Returns latest Pypi published version of comma separated packages
        as a list of dictionaries'''
     response = []
+    logger.info('Querying Pypi for package group: %s' % packages)
     try:
         for pkg in packages.split(','):
             url = "https://pypi.python.org/pypi/{}/json".format(pkg)
@@ -97,11 +93,10 @@ def check_for_newer_version(cur_ver, pypi_ver):
 
     # Determine if value from database is valid
     try:
-        current = list(s.split('==') for s in cur_ver.split(','))
+        current = dict(s.split('==') for s in cur_ver.split(','))
     except ValueError:
         # List not valid, process as new version
         return True
-
     # Check all versions and if any pypi are newer, process as new
     pypi_dict = {i['package']: i['version'] for i in pypi_ver}
     for i in current:
@@ -128,11 +123,9 @@ def build_for_runtimes(runtimes, pkgs):
 def publish_layers(regions, builds):
     '''For each region, publish layers and update DDB'''
 
-    # Collect all regions Lambda is available
-    wildcard_regions = lambda_regions()
     # TODO - short test
-    regions = ['us-east-1', 'us-west-2']
-    print('publishing for regions: {} and builds: {}'.format(
+    #regions = ['us-east-1', 'us-west-2']
+    logger.info('Publishing for regions: {} and builds: {}'.format(
         regions, builds
     ))
     return {'Result': 'success'}
@@ -197,21 +190,35 @@ def main():
     table = db_resource.Table(table_name)
 
     package_records = package_list(table)
+    # Collect all regions Lambda is available
+    wildcard_regions = lambda_regions()
     for pkg in package_records:
+        logger.info('Starting build process for package group: %s' % pkg['PackageList'])
         pypi_versions = get_pypi(pkg['PackageList'])
-        if check_for_newer_version(pkg['PackageVersionList'], pypi_versions):
-            # TODO - docker layers, return dict of region: [runtime: zipfile, ...]
-            build_result = build_for_runtimes(
-                pkg['Runtimes'],
-                pkg['PackageList']
-            )
-            if build_result:
-                # TODO - For each region create 
-                result = publish_layers(
-                    pkg['Regions'],
-                    build_result
+        try:
+            if check_for_newer_version(pkg['PackageVersionList'], pypi_versions):
+                logger.info(
+                    'New version of %s available, building site-packages for runtimes %s',
+                    pkg['PackageList'],
+                    pkg['Runtimes'])
+                # TODO - docker layers, return dict of region: [runtime: zipfile, ...]
+                build_result = build_for_runtimes(
+                    pkg['Runtimes'],
+                    pkg['PackageList']
                 )
-
+                if build_result:
+                    # TODO - For each region create
+                    result = publish_layers(
+                        wildcard_regions if pkg['Regions'] == '*' else pkg['Regions'],
+                        build_result
+                    )
+            else:
+                logger.info('Published layers are most current, skipping %s' % pkg['PackageList'])
+        except KeyError as e:
+            logging.error('Missing key %s for package %s', pkg, e)
+        logger.info('Completed check, build, publish for packages: %s',
+            pkg['PackageList'] in package_records
+        )
     # for package in packages:
         # get pypi package(s) versions
         # if version is newer:

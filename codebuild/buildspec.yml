@@ -30,7 +30,8 @@ phases:
   build:
     commands:
       - 'echo "Executing layer build and publish process: publish_packages.py"'
-      - python3 $CODEBUILD_SRC_DIR/codebuild/publish_layer.py
+      - python3 $CODEBUILD_SRC_DIR/codebuild/logging_test.py
+      # - python3 $CODEBUILD_SRC_DIR/codebuild/publish_pacakges.py
       # - 'echo "Building layers for boto3 version: $PKG_VERSION"'
       # # Python 2.7
       # - cd /tmp/python/lib/python2.7/site-packages
