@@ -129,9 +129,9 @@ def build_for_runtimes(runtimes, pkgs):
             )
             client.containers.run(
                 docker_runtime_map[runtime],
-                '/bin/bash -c "pip install {}} -t .; exit"'.format(pkgs),
+                '/bin/bash -c "pip install {} -t .; exit"'.format(pkgs),
                 volumes={
-                    '/tmp/foo': {'bind': '/var/task', 'mode': 'rw'}
+                    runtime_folder: {'bind': '/var/task', 'mode': 'rw'}
                 }
             )
             # docker run with packages
