@@ -18,7 +18,7 @@ phases:
       - cd codebuild
       - apt update -y
       - apt install -y python3-pip python-requests python-pkg-resources
-      - pip3 install -U awscli
+      - pip3 install -U awscli docker
       # - PKG_VERSION="$(./pypi_package_version.py boto3)"
       - echo "Building for boto3 version $PKG_VERSION"
       # - mkdir -p /tmp/python/lib/python2.7/site-packages
@@ -30,7 +30,7 @@ phases:
   build:
     commands:
       - 'echo "Executing layer build and publish process: publish_packages.py"'
-      - python3 $CODEBUILD_SRC_DIR/codebuild/logging_test.py
+      - python3 $CODEBUILD_SRC_DIR/codebuild/publish_packages.py
       # - python3 $CODEBUILD_SRC_DIR/codebuild/publish_pacakges.py
       # - 'echo "Building layers for boto3 version: $PKG_VERSION"'
       # # Python 2.7

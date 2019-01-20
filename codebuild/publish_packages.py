@@ -6,9 +6,11 @@ import os
 import logging
 import json
 import time
+import docker
 from pkg_resources import parse_version
 from functools import lru_cache
 from datetime import datetime
+from pathlib import Path
 import boto3
 from boto3.dynamodb.conditions import Key, Attr
 from botocore.exceptions import ClientError
@@ -16,11 +18,17 @@ from botocore.exceptions import ClientError
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 handler = logging.StreamHandler()
-handler.setLevel(logging.DEBUG)
+# handler.setLevel(logging.DEBUG)
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 handler.setFormatter(formatter)
 logger.addHandler(handler)
 
+# Constants
+docker_runtime_map = {
+    'python27': 'lambci/lambda:build-python2.7',
+    'python36': 'lambci/lambda:build-python3.6',
+    'python37': 'lambci/lambda:build-python3.7'
+}
 # Environment variables set by CodeBuild
 table_name = os.environ['VERSION_TABLE']
 # build_dir = os.environ['CODEBUILD_SRC_DIR']
@@ -107,8 +115,34 @@ def check_for_newer_version(cur_ver, pypi_ver):
 
 def build_for_runtimes(runtimes, pkgs):
     '''Create zipfiles of latest packages for each runtime using docker lambci'''
-    print('Building for {}, {}'.format(runtimes, pkgs))
+    logger.info('Building for %s, %s', runtimes, pkgs)
 
+    try:
+        client = docker.from_env()
+        for runtime in runtimes.split(','):
+            runtime_folder = Path('/tmp/{}-{}'.format(pkgs, runtime))
+            logger.info('Creating temporary build directory: %s', runtime_folder)
+            runtime_folder.mkdir()
+            logger.info("Executing docker container %s to install packages %s",
+                docker_runtime_map[runtime],
+                pkgs
+            )
+            client.containers.run(
+                docker_runtime_map[runtime],
+                '/bin/bash -c "pip install {}} -t .; exit"'.format(pkgs),
+                volumes={
+                    '/tmp/foo': {'bind': '/var/task', 'mode': 'rw'}
+                }
+            )
+            # docker run with packages
+            # zip the directory to /tmp
+            runtime_folder.rmdir()
+            pass
+    except Exception as e:
+        logger.error('Serious error % s in creating runtime %s for %s, stopping build process',
+            e, runtime, pkgs
+        )
+        sys.exit(1)
     test_return = {
         'boto3,numpy': [
             {'python27': 'foo1.zip'},
