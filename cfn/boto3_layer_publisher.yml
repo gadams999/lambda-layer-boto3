@@ -88,37 +88,38 @@ Resources:
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         -
-          AttributeName: 'Arn'
+          AttributeName: "PK"
           AttributeType: "S"
         -
-          AttributeName: 'PackageList'
+          AttributeName: "SK"
           AttributeType: "S"
         -
-          AttributeName: 'PackageVersion'
+          AttributeName: "GSIPK"
+          AttributeType: "S"
+        -
+          AttributeName: "GSISK"
           AttributeType: "S"
       KeySchema:
         -
-          AttributeName: 'Arn'
+          AttributeName: "PK"
           KeyType: "HASH"
         -
-          AttributeName: 'PackageList'
+          AttributeName: 'SK'
           KeyType: "RANGE"
       GlobalSecondaryIndexes: 
         - 
-          IndexName: "gsiPackages"
+          IndexName: "GSI1"
           KeySchema: 
             - 
-              AttributeName: "PackageList"
+              AttributeName: "GSIPK"
               KeyType: "HASH"
             - 
-              AttributeName: "PackageVersion"
+              AttributeName: "GSISK"
               KeyType: "RANGE"
           Projection: 
             NonKeyAttributes:
-              - "Regions"
-              - "Runtimes"
-              - "Timestamp"
-              - "PackageVersionList"
+              - "PK"
+              - "SK"
             ProjectionType: "INCLUDE"
 
   # Roles and policies

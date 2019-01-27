@@ -95,38 +95,71 @@ def get_pypi(packages):
     return response
 
 
+def package_version(table, pkgs, pypi_versions):
+    '''Create single version number for package or list of packages in
+       package list provided. Multiple packages will be next integer from
+       what is currently recorded DynamoDB table'''
+
+    if len(pypi_versions) > 1:
+        # Get most recent version of multiple packages - if NONE is returned this
+        # has never been processed
+        r = table.query(
+            KeyConditionExpression=
+                Key('Arn').eq('MASTER') &
+                Key('PackageList').eq(pkgs)
+        )
+        if r['Items'][0]['PackageVersion'] == 'NONE':
+            return '1'
+        else:
+            return int(r['Items'][0]['PackageVersion']) + 1
+    else:
+        return pypi_versions[0]['version']
+
+
 def check_for_newer_version(cur_ver, pypi_ver):
     '''Check if dict value(s) in cur_ver are older than dict values in pypi_ver,
        any one older value indicates they should be processed
        
-       cur_ver is string "pkg==ver,pkg==ver",
+       cur_ver is string "pkg==ver,pkg==ver" or "none",
        pypi_ver is [{"package": "pkg", "version": "ver"}, ...] 
        '''
+
+    result = {}
+    new_version_found = False
+    pypi_dict = {i['package']: i['version'] for i in pypi_ver}
+    # Return pypi values if this package has never been published
+    if cur_ver == 'none':
+        for i in pypi_dict:
+            result[i] = pypi_dict[i]
+        return result
 
     # Determine if value from database is valid
     try:
         current = dict(s.split('==') for s in cur_ver.split(','))
     except ValueError:
-        # List not valid, process as new version
-        return True
+        # List not valid, bad DDB record
+        sys.exit(1)
     # Check all versions and if any pypi are newer, process as new
-    pypi_dict = {i['package']: i['version'] for i in pypi_ver}
     for i in current:
-        if parse_version(pypi_dict[i]) > parse_version(current[i]):
-            return True
-    return False
+        result[i] = pypi_dict[i]
+        if parse_version(pypi_dict[i]) > parse_version(current[i]): 
+            new_version_found = True
+    return result if new_version_found else False
 
 
 def build_for_runtimes(runtimes, pkgs):
-    '''Create zipfiles of latest packages for each runtime using docker lambci'''
+    '''Create zipfiles of latest packages for each runtime using docker lambci
+       runtimes = "runtime1,runtime2..."
+       pkgs={"package_name", "version"}'''
     logger.info('Building for %s, %s', runtimes, pkgs)
 
-
+    result = {}
+    package_list = ','.join(['%s' % key for (key,value) in pkgs.items()])
     client = docker.from_env()
     # /tmp/python/lib/python2.7/site-packages
     for runtime in runtimes.split(','):
         runtime_folder = Path('/tmp/{}-{}/python/lib/{}/site-packages'.format(
-            pkgs,
+            package_list,
             runtime,
             docker_runtime_map[runtime]
         ))
@@ -135,59 +168,80 @@ def build_for_runtimes(runtimes, pkgs):
         logger.info("Executing docker container %s%s to install packages %s",
             docker_runtime_map,
             docker_runtime_map[runtime],
-            pkgs
+            package_list
         )
         try:
+            pip_command = ' '.join(['%s==%s' % (key, value) for (key,value) in pkgs.items()])
             client.containers.run(
                 docker_base_image + docker_runtime_map[runtime],
-                '/bin/bash -c "pip install {} -t .; exit"'.format(pkgs),
+                '/bin/bash -c "pip install {} -t .; exit"'.format(pip_command),
                 volumes={
                     runtime_folder: {'bind': '/var/task', 'mode': 'rw'}
                 }
             )
         except Exception as e:
             logger.error('Serious error % s in creating runtime %s for %s, stopping build process',
-                e, runtime, pkgs
+                e, runtime, package_list
             )
             sys.exit(1)
         
         # Create zip file
         shutil.make_archive(
-            Path('/tmp/{}-{}'.format(pkgs, runtime)),
+            Path('/tmp/{}-{}'.format(package_list, runtime)),
             'zip',
-            Path('/tmp/{}-{}'.format(pkgs, runtime))
+            Path('/tmp/{}-{}'.format(package_list, runtime))
         )
+        result[package_list+'-'+runtime] = Path('/tmp/{}-{}.zip'.format(pkgs, runtime))
+        shutil.rmtree(Path('/tmp/{}-{}'.format(pkgs, runtime)))
 
-        # zip the directory to /tmp
-        # shutil.rmtree(runtime_folder)
-
-    test_return = {
-        'boto3,numpy': [
-            {'python27': 'foo1.zip'},
-            {'python36': 'foo2.zip'}
-        ]
-    }
-
-    # if no failures, return dist, otherwise return False
-    return test_return
+    # Return runtimes and file names in Path format
+    return result
 
 
-def publish_layers(regions, builds):
-    '''For each region, publish layers and update DDB'''
+def publish_layers(table, regions, pkg_version, builds):
+    '''For each region, publish layers and update DDB
+       pkg_version contains each package and its version
+       builds = each package-runtime and zipfile
+    '''
 
-    # TODO - short test
-    #regions = ['us-east-1', 'us-west-2']
     logger.info('Publishing for regions: {} and builds: {}'.format(
         regions, builds
     ))
-    return {'Result': 'success'}
-    # for region in regions.split(','):
+    for region in regions.split(','):
+        lambda_client = boto3.client('lambda', region_name=region)
+        # Layername is the pkgs-runtime combination
+        for layername in builds:
+            response = lambda_client.publish_layer_version(
+                LayerName=layername,
+                Description='Python packages: {}, version: {}'.format(
+                    layername.split('-')[0],
+                    pkg_version
+                ),
+                Content={
+                    'ZipFile': builds[layername].open('rb').read()
+                },
+                CompatibleRuntimes=layername.split('-')[1],
+                LicenseInfo='Apache-2.0'
+            )
+            layer_version_num = response['Version']
+            arn = response['LayerVersionArn']
+            response = lambda_client.add_layer_version_permission(
+                LayerName=layername,
+                VersionNumber=layer_version_num,
+                StatementId='FullPublicAccess',
+                Action='lambda:GetLayerVersion',
+                Principal='*'
+            )
+            logger.info('Created layer: %s in %s, permissions set',
+                layername, region)
+    return True
+
+
+
         # publish layer
         # create DDB record
     # return status object with pass or fail
 
-# def OLD_publish_layers(regions, compatible_runtimes):
-#     '''Main function to process runtimes and publish new layer and/or version'''
 
 #     table = db_resource.Table(table_name)
 #     for region in regions:
@@ -248,22 +302,28 @@ def main():
         logger.info('Starting build process for package group: %s' % pkg['PackageList'])
         pypi_versions = get_pypi(pkg['PackageList'])
         try:
-            if check_for_newer_version(pkg['PackageVersionList'], pypi_versions):
+            new_version_list = check_for_newer_version(pkg['PackageVersionList'], pypi_versions)
+            # new_version_list contains new package(s) and version(s) or False if none to process
+            if new_version_list:
                 logger.info(
                     'New version of %s available, building site-packages for runtimes %s',
                     pkg['PackageList'],
                     pkg['Runtimes'])
-                # TODO - docker layers, return dict of region: [runtime: zipfile, ...]
+                # breakpoint()
                 build_result = build_for_runtimes(
                     pkg['Runtimes'],
-                    pkg['PackageList']
+                    new_version_list
                 )
-                if build_result:
-                    # TODO - For each region create
-                    result = publish_layers(
-                        wildcard_regions if pkg['Regions'] == '*' else pkg['Regions'],
-                        build_result
-                    )
+                logger.info('Built for: %s' % build_result)
+                # Get or create a new package version for publish (either version if single
+                # package, or incremental number if multiple packages)
+                new_pkg_ver_num = package_version(table_name, pkg['PackageList'], pypi_versions)
+                result = publish_layers(
+                    table_name,
+                    wildcard_regions if pkg['Regions'] == '*' else pkg['Regions'],
+                    new_pkg_ver_num,
+                    build_result
+                )
             else:
                 logger.info('Published layers are most current, skipping %s' % pkg['PackageList'])
         except KeyError as e:
