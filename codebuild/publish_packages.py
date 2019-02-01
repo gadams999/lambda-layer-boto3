@@ -59,15 +59,14 @@ class Package:
         try:
             # All attributes need to be present in record
             self.runtimes = r['Items'][0]['Runtimes']
-            self.published_package_version = r['Items'][0]['PublishedPackageVersion']
+            if 'PublishedPackageVersion' in r['Items'][0]:
+                self.published_package_version = r['Items'][0]['PublishedPackageVersion']
+            else:
+                self.published_package_version = '0'
             if r['Items'][0]['Regions'] == '*':
                 self.regions = lambda_regions
             else:
                 self.regions = r['Items'][0]['Regions']
-            if r['Items'][0]['PublishedPackageVersion'] == 'NONE':
-                self.published_package_version = '0'
-            else:
-                self.published_package_version = r['Items'][0]['PublishedPackageVersion']
             if r['Items'][0]['PackageVersions'] == []:
                 self.package_versions = []
                 for i in package_list.split(','):
@@ -82,13 +81,13 @@ class Package:
 
         # Complete object variables from other sources
         # Get Pypi versions of the package_list
-
         self.pkg_pypi_versions = self._get_pypi(package_list)
-        print('package_lists: %s' % self.package_versions)
         # Check if any package on Pypi is newer
         if self._check_for_newer_version(self.package_versions, self.pkg_pypi_versions):
+            logging.info('Packages %s are current, no updates needed' % self.package_list)
             self.is_current = False
         else:
+            logging.info('Packages %s are NOT current, updates needed' % self.package_list)
             self.is_current = True
 
 
@@ -211,13 +210,18 @@ class Package:
         for region in self.regions.split(','):
             lambda_client = boto3.client('lambda', region_name=region)
             for runtime in self.runtimes.split(','):
-                layer_name = '{}-{}'.format(self.package_list, runtime)
+                # Convert pkg1,pkg2 to pkg1_pgk2 for layer name
+                layer_name = '{}-{}'.format(
+                    self.package_list.replace(',', '_'),
+                    runtime
+                )
+                zip_name = '{}-{}'.format(self.package_list, runtime)
                 try:
                     response = lambda_client.publish_layer_version(
                         LayerName=layer_name,
                         Description=desc,
                         Content={
-                            'ZipFile': open(zipfiles[layer_name], 'rb').read()
+                            'ZipFile': open(zipfiles[zip_name], 'rb').read()
                         },
                         CompatibleRuntimes=[self.docker_runtime_map[runtime]],
                         LicenseInfo='Apache-2.0'
@@ -234,7 +238,7 @@ class Package:
                     logger.info('Created layer: %s in %s, permissions set',
                         layer_name, region)
                     
-                    # create DDB record for ARN
+                    # create DDB record for published layer
                     self.table.put_item(
                         Item={
                             'PK': self.package_list,
@@ -249,7 +253,18 @@ class Package:
                         region, runtime, e.response['Error']['Message'])
                     sys.exit(1)
         # Update DDB record (and self) with latest version
-
+        self.table.update_item(
+            Key={
+                'PK': self.package_list,
+                'SK': 'MASTER'
+            },
+            UpdateExpression='set PublishedPackageVersion = :ppv, PackageVersions = :packver',
+            ExpressionAttributeValues={
+                ':ppv': version,
+                ':packver': self.pkg_pypi_versions
+            },
+            ReturnValues='UPDATED_NEW'
+        )
 
 def lambda_regions():
     '''Return list of regions that support AWS Lambda. Note, does not include
@@ -409,43 +424,43 @@ def check_for_newer_version(pkg_vers, pypi_ver):
 #     return result
 
 
-def publish_layers(table, regions, pkg_version, builds):
-    '''For each region, publish layers and update DDB
-       pkg_version contains each package and its version
-       builds = each package-runtime and zipfile
-    '''
+# def publish_layers(table, regions, pkg_version, builds):
+#     '''For each region, publish layers and update DDB
+#        pkg_version contains each package and its version
+#        builds = each package-runtime and zipfile
+#     '''
 
-    logger.info('Publishing for regions: {} and builds: {}'.format(
-        regions, builds
-    ))
-    for region in regions.split(','):
-        lambda_client = boto3.client('lambda', region_name=region)
-        # Layername is the pkgs-runtime combination
-        for layername in builds:
-            response = lambda_client.publish_layer_version(
-                LayerName=layername,
-                Description='Python packages: {}, version: {}'.format(
-                    layername.split('-')[0],
-                    pkg_version
-                ),
-                Content={
-                    'ZipFile': builds[layername].open('rb').read()
-                },
-                CompatibleRuntimes=layername.split('-')[1],
-                LicenseInfo='Apache-2.0'
-            )
-            layer_version_num = response['Version']
-            arn = response['LayerVersionArn']
-            response = lambda_client.add_layer_version_permission(
-                LayerName=layername,
-                VersionNumber=layer_version_num,
-                StatementId='FullPublicAccess',
-                Action='lambda:GetLayerVersion',
-                Principal='*'
-            )
-            logger.info('Created layer: %s in %s, permissions set',
-                layername, region)
-    return True
+#     logger.info('Publishing for regions: {} and builds: {}'.format(
+#         regions, builds
+#     ))
+#     for region in regions.split(','):
+#         lambda_client = boto3.client('lambda', region_name=region)
+#         # Layername is the pkgs-runtime combination
+#         for layername in builds:
+#             response = lambda_client.publish_layer_version(
+#                 LayerName=layername,
+#                 Description='Python packages: {}, version: {}'.format(
+#                     layername.split('-')[0],
+#                     pkg_version
+#                 ),
+#                 Content={
+#                     'ZipFile': builds[layername].open('rb').read()
+#                 },
+#                 CompatibleRuntimes=layername.split('-')[1],
+#                 LicenseInfo='Apache-2.0'
+#             )
+#             layer_version_num = response['Version']
+#             arn = response['LayerVersionArn']
+#             response = lambda_client.add_layer_version_permission(
+#                 LayerName=layername,
+#                 VersionNumber=layer_version_num,
+#                 StatementId='FullPublicAccess',
+#                 Action='lambda:GetLayerVersion',
+#                 Principal='*'
+#             )
+#             logger.info('Created layer: %s in %s, permissions set',
+#                 layername, region)
+#     return True
 
 
 
@@ -509,13 +524,23 @@ def main():
     wildcard_regions = 'us-east-1,us-west-2'
     # for pkg in package_records:
     #     logger.info('Starting build process for package group: %s' % pkg['PackageList'])
-    package = Package(
-        package_list='boto3',
-        table='test-VersionTable',
-        table_region='us-west-2',
-        lambda_regions=wildcard_regions
+
+    dynamodb = boto3.resource('dynamodb', region_name=os.environ['AWS_DEFAULT_REGION'])
+    table = dynamodb.Table(os.environ['VERSION_TABLE'])
+
+    response = table.query(
+        IndexName='GSI1',
+        KeyConditionExpression=Key('GSIPK').eq('PACKAGE')
     )
-    package.Publish()
+    for pkg in response['Items']:
+        package = Package(
+            package_list=pkg['PK'],
+            table=os.environ['VERSION_TABLE'],
+            table_region=os.environ['AWS_DEFAULT_REGION'],
+            lambda_regions=wildcard_regions
+        )
+        package.Publish()
+
     # package.Delete()
 
 if __name__ == "__main__":
