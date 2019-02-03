@@ -71,12 +71,12 @@ Resources:
           Type: "GITHUB"
           Auth:
             Type: "OAUTH"
-            #Resource: !Ref GitHubAccessToken
           GitCloneDepth: 1
           InsecureSsl: "false"
-          Location: "https://github.com/gadams999/lambda-layer-boto3.git"
+          Location: !Join ["", [!Ref GitHubRepo, ".git"] ]
           BuildSpec: "codebuild/buildspec.yml"
           ReportBuildStatus: "false"
+
   VersionTable:
     Type: 'AWS::DynamoDB::Table'
     Properties:
@@ -121,6 +121,36 @@ Resources:
               - "PK"
               - "SK"
             ProjectionType: "INCLUDE"
+
+  InitFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        ZipFile: >
+          import boto3
+          import cfnresponse
+
+          def handler(event, context):
+            client = boto3.resource('dynamodb')
+            table = client.Table(event['ResourceProperties']['TableName'])
+            table.put_item(
+              Item= {
+                'PK': '34',
+                'SK':  'microsoft'
+              }
+            )
+            responseData = {}
+            cfnresponse.send(event, context, cfnresponse.SUCCESS, responseData, "CustomResourcePhysicalID")
+      Handler: index.handler
+      Role: !GetAtt LambdaInitRole.Arn
+      Runtime: python3.6
+      Timeout: 60
+
+  InitializeDynamoDB:
+      Type: Custom::InitFunction
+      Properties:
+        ServiceToken: !GetAtt InitFunction.Arn
+        DynamoTableName: !Ref VersionTable
 
   # Roles and policies
   CodeBuildServiceRole:
@@ -218,6 +248,33 @@ Resources:
             Resource:
             - "*"
 
+  LambdaInitRole:
+  # Permissions for inline custom resource
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Path: "/"
+      Policies:
+        - PolicyName: dynamodbAccessRole
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+            - Effect: Allow
+              Action:
+              - dynamodb:*
+              Resource: "*"
+            - Effect: Allow
+              Action:
+              - logs:*
+              Resource: "*"
 Outputs:
   TableName:
     Description: test - DDB table name
