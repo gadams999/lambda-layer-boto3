@@ -48,7 +48,7 @@ Resources:
           Type: "NO_ARTIFACTS"
         Cache: 
           Type: "NO_CACHE"
-        Description: "Build boto3 packages and publish"
+        Description: "Build python packages and publish as lambda layers"
         Environment: 
           ComputeType: "BUILD_GENERAL1_SMALL"
           Image: "aws/codebuild/docker:18.09.0"
@@ -66,7 +66,7 @@ Resources:
                 - "_"
                 -
                   - !Join ["", !Split ["-",  !Ref "AWS::StackName"] ]
-                  - "boto3_builder"
+                  - "lambda_layer_factory"
         Source: 
           Type: "GITHUB"
           Auth:
@@ -126,21 +126,41 @@ Resources:
     Type: AWS::Lambda::Function
     Properties:
       Code:
-        ZipFile: >
+        ZipFile: |
+          import json
+          import os
           import boto3
           import cfnresponse
+          import logging
 
           def handler(event, context):
-            client = boto3.resource('dynamodb')
-            table = client.Table(event['ResourceProperties']['TableName'])
-            table.put_item(
-              Item= {
-                'PK': '34',
-                'SK':  'microsoft'
-              }
-            )
-            responseData = {}
-            cfnresponse.send(event, context, cfnresponse.SUCCESS, responseData, "CustomResourcePhysicalID")
+              try:
+                  print('Received event: {}'.format(json.dumps(event)))
+                  print('Environment variables: {}'.format(os.environ))
+                  result = cfnresponse.SUCCESS
+
+                  if event['RequestType'] == 'Create':
+                      client = boto3.resource('dynamodb')
+                      table = client.Table(event['ResourceProperties']['TableName'])
+                      table.put_item(
+                        Item= {
+                          'PK': 'boto3',
+                          'SK':  'MASTER',
+                          'Regions': '*',
+                          'Runtimes': 'python37',
+                          'PackageVersions': [],
+                          'GSIPK': 'PACKAGE',
+                          'GSISK': 'boto3'
+                        }
+                      )
+                  elif event['RequestType'] == 'Update':
+                      result = cfnresponse.SUCCESS
+                  elif event['RequestType'] == 'Delete':
+                      result = cfnresponse.SUCCESS
+              except Exception as e:
+                  logging.error('Error: %s', e)
+                  result = cfnresponse.FAILED
+              cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
       Handler: index.handler
       Role: !GetAtt LambdaInitRole.Arn
       Runtime: python3.6
@@ -150,7 +170,7 @@ Resources:
       Type: Custom::InitFunction
       Properties:
         ServiceToken: !GetAtt InitFunction.Arn
-        DynamoTableName: !Ref VersionTable
+        TableName: !Ref VersionTable
 
   # Roles and policies
   CodeBuildServiceRole:

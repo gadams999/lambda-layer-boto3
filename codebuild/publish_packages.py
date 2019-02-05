@@ -286,8 +286,9 @@ def lambda_regions():
                 (region, e)
             )
             continue
+    lambda_regions = ','.join(lambda_regions)
     logger.info('Lambda available in the following regions: %s' % lambda_regions)
-    return lambda_regions  
+    return lambda_regions
 
 
 def main():
@@ -307,6 +308,7 @@ def main():
         KeyConditionExpression=Key('GSIPK').eq('PACKAGE')
     )
     for pkg in response['Items']:
+        logger.info('Starting build process for package group: %s' % pkg['PK'])
         package = Package(
             package_list=pkg['PK'],
             table=os.environ['VERSION_TABLE'],
@@ -314,8 +316,8 @@ def main():
             lambda_regions=wildcard_regions
         )
         package.Publish()
+    logger.info('*** Completed build process ***')
 
-    # package.Delete()
 
 if __name__ == "__main__":
     main()
