@@ -263,7 +263,16 @@ Resources:
                 - !Ref "AWS::AccountId"
                 - ":table/"
                 - !Ref VersionTable
-                - "/*"
+            - !Join
+              - ""
+              -
+                - "arn:aws:dynamodb:"
+                - !Ref "AWS::Region"
+                - ":"
+                - !Ref "AWS::AccountId"
+                - ":table/"
+                - !Ref VersionTable
+                - "index/*"
           - Sid: EC2Describe
             Effect: Allow
             Action:
