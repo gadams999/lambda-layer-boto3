@@ -272,7 +272,7 @@ Resources:
                 - !Ref "AWS::AccountId"
                 - ":table/"
                 - !Ref VersionTable
-                - "index/*"
+                - "/index/*"
           - Sid: EC2Describe
             Effect: Allow
             Action:
