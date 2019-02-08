@@ -192,7 +192,7 @@ class Package:
                 'zip',
                 str(Path('/tmp/{}-{}'.format(package_list, runtime)))
             )
-            result[package_list+'-'+runtime] = Path('/tmp/{}-{}.zip'.format(package_list, runtime))
+            result[package_list+'-'+runtime] = str(Path('/tmp/{}-{}.zip'.format(package_list, runtime)))
             shutil.rmtree(str(Path('/tmp/{}-{}'.format(package_list, runtime))))
 
         # Return runtimes and file names in Path format
