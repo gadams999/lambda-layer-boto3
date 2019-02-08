@@ -36,8 +36,8 @@ Parameters:
     Default: https://github.com/USERNAME/REPO
   GitHubAccessToken:
     Type: String
-    Description: AWS System Manager GitHub access token parameter to pass to build jobs (NOT THE ACTUAL TOKEN)
-    Default: /CodeBuild/KEYNAME
+    Description: GitHunb token key in AWS System Manager, used to pass to build jobs (NOT THE ACTUAL TOKEN)
+    Default: /CodeBuild/GITHUB_KEY
 
 Resources:
   CodeBuildProject:

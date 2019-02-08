@@ -188,9 +188,9 @@ class Package:
             
             # Create zip file
             shutil.make_archive(
-                Path('/tmp/{}-{}'.format(package_list, runtime)),
+                str(Path('/tmp/{}-{}'.format(package_list, runtime))),
                 'zip',
-                Path('/tmp/{}-{}'.format(package_list, runtime))
+                str(Path('/tmp/{}-{}'.format(package_list, runtime)))
             )
             result[package_list+'-'+runtime] = Path('/tmp/{}-{}.zip'.format(package_list, runtime))
             shutil.rmtree(Path('/tmp/{}-{}'.format(package_list, runtime)))
