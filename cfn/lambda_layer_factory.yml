@@ -140,11 +140,13 @@ Resources:
                   result = cfnresponse.SUCCESS
 
                   if event['RequestType'] == 'Create':
-                      # Create example package in a couple regions
+                      # Create example package (boto3) in two regions for python 3.7
                       client = boto3.resource('dynamodb')
                       table = client.Table(event['ResourceProperties']['TableName'])
                       table.put_item(
                         Item= {
+                          # These are the minimum attributes that need to be included for a
+                          # new record
                           'PK': 'boto3',
                           'SK':  'MASTER',
                           'Regions': 'us-east-1,us-west-2',
