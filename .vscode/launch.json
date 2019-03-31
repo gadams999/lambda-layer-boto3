@@ -22,9 +22,9 @@
             "program": "${file}",
             "console": "integratedTerminal",
             "cwd": "/Users/gadams/git_pers/AWS-PlantUML/scripts",
-            "args": [
-                "--create-config-template"
-            ],
+            // "args": [
+            //     "--create-config-template"
+            // ],
 
         },
         {
