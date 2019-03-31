@@ -16,6 +16,18 @@
             "console": "integratedTerminal"
         },
         {
+            "name": "Python: PlantUML icon-builder test",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "cwd": "/Users/gadams/git_pers/AWS-PlantUML/scripts",
+            "args": [
+                "--create-config-template"
+            ],
+
+        },
+        {
             "name": "Python: Remote Attach",
             "type": "python",
             "request": "attach",
